@@ -255,16 +255,16 @@ func (w *webrunner) scrapeJob(ctx context.Context, job *web.Job) error {
 	}
 	defer fileForUpload.Close()
 
-	s3Key := "exports/" + job.ID + ".csv" // adjust as needed
-	s3Bucket := w.cfg.S3Bucket            // assumes OutputBucket string is part of Config
+	// s3Key := "exports/" + job.ID + ".csv" // adjust as needed
+	// s3Bucket := w.cfg.S3Bucket            // assumes OutputBucket string is part of Config
 
-	err = w.cfg.S3Uploader.Upload(ctx, s3Bucket, s3Key, fileForUpload)
-	if err != nil {
-		log.Printf("failed to upload output file to s3: %v", err)
-		job.Status = web.StatusFailed
-		_ = w.svc.Update(ctx, job)
-		return err
-	}
+	// err = w.cfg.S3Uploader.Upload(ctx, s3Bucket, s3Key, fileForUpload)
+	// if err != nil {
+	// 	log.Printf("failed to upload output file to s3: %v", err)
+	// 	job.Status = web.StatusFailed
+	// 	_ = w.svc.Update(ctx, job)
+	// 	return err
+	// }
 
 	return w.svc.Update(ctx, job)
 }
