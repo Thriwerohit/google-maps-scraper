@@ -78,6 +78,18 @@ type Config struct {
 	Radius                   float64
 	Addr                     string
 	DisablePageReuse         bool
+	KafkaConfig              KafkaConfig  `mapstructure:"kafka_config"`
+	KafkaClient              KafkaClient 
+}
+
+type KafkaConfig struct {
+	Brokers               []string `mapstructure:"brokers"`
+	SchemaRegistryUrl     string   `mapstructure:"schemaRegistryUrl"`
+	SchemaRegistrySubject string   `mapstructure:"schemaRegistrySubject"`
+	Topics                []string `mapstructure:"topics"`
+	Subjects              []string `mapstructure:"subjects"`
+	SASLUser              string   `mapstructure:"saslUser"`
+	SASLPassword          string   `mapstructure:"saslPassword"`
 }
 
 func ParseConfig() *Config {
@@ -103,7 +115,7 @@ func ParseConfig() *Config {
 	flag.StringVar(&cfg.Dsn, "dsn", "", "database connection string [only valid with database provider]")
 	flag.BoolVar(&cfg.ProduceOnly, "produce", false, "produce seed jobs only (requires dsn)")
 	flag.DurationVar(&cfg.ExitOnInactivityDuration, "exit-on-inactivity", 0, "exit after inactivity duration (e.g., '5m')")
-	flag.BoolVar(&cfg.JSON, "json", true, "produce JSON output instead of CSV")
+	flag.BoolVar(&cfg.JSON, "json", false, "produce JSON output instead of CSV")
 	flag.BoolVar(&cfg.Email, "email", false, "extract emails from websites")
 	flag.StringVar(&cfg.CustomWriter, "writer", "", "use custom writer plugin (format: 'dir:pluginName')")
 	flag.StringVar(&cfg.GeoCoordinates, "geo", "", "set geo coordinates for search (e.g., '37.7749,-122.4194')")

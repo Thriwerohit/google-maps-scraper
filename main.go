@@ -8,13 +8,18 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/gosom/google-maps-scraper/config"
 	"github.com/gosom/google-maps-scraper/runner"
 	"github.com/gosom/google-maps-scraper/runner/databaserunner"
 	"github.com/gosom/google-maps-scraper/runner/filerunner"
 	"github.com/gosom/google-maps-scraper/runner/installplaywright"
 	"github.com/gosom/google-maps-scraper/runner/lambdaaws"
 	"github.com/gosom/google-maps-scraper/runner/webrunner"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
+
+var kafkaConfig runner.KafkaConfig
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -32,7 +37,28 @@ func main() {
 		cancel()
 	}()
 
+	loggerConfig := zap.NewProductionConfig()
+	loggerLevel, _ := zapcore.ParseLevel("info")
+	loggerConfig.Level = zap.NewAtomicLevelAt(loggerLevel)
+
+	logger, _ := loggerConfig.Build(
+		zap.AddCaller(),
+		zap.AddCallerSkip(1),
+		zap.AddStacktrace(zapcore.ErrorLevel),
+	)
+	defer logger.Sync()
+
+	sugar := logger.Sugar()
+
+	kafkaClient, err := runner.NewKafkaClient(kafkaConfig, sugar)
+	if err != nil {
+		cancel()
+		sugar.Errorw("Failed to create Kafka client", "error", err)
+		os.Exit(1)
+	}
 	cfg := runner.ParseConfig()
+	cfg.KafkaConfig = kafkaConfig
+	cfg.KafkaClient = kafkaClient
 
 	runnerInstance, err := runnerFactory(cfg)
 	if err != nil {
@@ -80,4 +106,19 @@ func runnerFactory(cfg *runner.Config) (runner.Runner, error) {
 	default:
 		return nil, fmt.Errorf("%w: %d", runner.ErrInvalidRunMode, cfg.RunMode)
 	}
+}
+
+func init() {
+	Cfg := config.Init()
+
+	kafkaConfig = runner.KafkaConfig{
+		Topics:                Cfg.KafkaConfig.Topics,
+		Brokers:               Cfg.KafkaConfig.Brokers,
+		Subjects:              Cfg.KafkaConfig.Subjects,
+		SchemaRegistryUrl:     Cfg.KafkaConfig.SchemaRegistryUrl,
+		SchemaRegistrySubject: Cfg.KafkaConfig.SchemaRegistrySubject,
+		SASLUser:              Cfg.KafkaConfig.SASLUser,
+		SASLPassword:          Cfg.KafkaConfig.SASLPassword,
+	}
+
 }

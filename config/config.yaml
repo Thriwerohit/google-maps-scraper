@@ -1,0 +1,21 @@
+databases:
+  dbs:
+    - project_code: auth
+      type: "mongo"
+      uri: "mongodb://rashmi_read:hq0PySpkeQ8uz6uF@ac-ez0yja2-shard-00-00.6x4exst.mongodb.net:27017,ac-ez0yja2-shard-00-01.6x4exst.mongodb.net:27017,ac-ez0yja2-shard-00-02.6x4exst.mongodb.net:27017/?replicaSet=atlas-11b9tc-shard-0&ssl=true&authSource=admin"
+      database_name: "staging-auth"
+      ssm:
+
+kafka_config:
+  brokers:
+    - "localhost:29092"
+  topics:
+    - "scrapper-data-topic"
+
+  subjects:
+    - "scrapper-data-schema"
+
+  schemaRegistryUrl: "http://localhost:8081"
+  saslUser: "stag-kafka"
+  saslPassword: "9fcf47e9-1747-4753-9cfb-0f66ef388e09"
+

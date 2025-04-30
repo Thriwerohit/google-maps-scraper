@@ -3,12 +3,14 @@ package webrunner
 import (
 	"context"
 	"encoding/csv"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -245,26 +247,23 @@ func (w *webrunner) scrapeJob(ctx context.Context, job *web.Job) error {
 
 	job.Status = web.StatusOK
 
-	// Re-open file for upload
-	fileForUpload, err := os.Open(outpath)
-	if err != nil {
-		log.Printf("failed to open output file for upload: %v", err)
-		job.Status = web.StatusFailed
-		_ = w.svc.Update(ctx, job)
-		return err
-	}
-	defer fileForUpload.Close()
-
-	// s3Key := "exports/" + job.ID + ".csv" // adjust as needed
-	// s3Bucket := w.cfg.S3Bucket            // assumes OutputBucket string is part of Config
-
-	// err = w.cfg.S3Uploader.Upload(ctx, s3Bucket, s3Key, fileForUpload)
+	// places, err := ParseCSVToStructs(outpath)
 	// if err != nil {
-	// 	log.Printf("failed to upload output file to s3: %v", err)
-	// 	job.Status = web.StatusFailed
-	// 	_ = w.svc.Update(ctx, job)
-	// 	return err
+	// 	log.Fatalf("failed parsing csv: %v", err)
 	// }
+
+	// fmt.Println("Parsed places:", places)
+
+	// // s3Key := "exports/" + job.ID + ".csv" // adjust as needed
+	// // s3Bucket := w.cfg.S3Bucket            // assumes OutputBucket string is part of Config
+
+	// // err = w.cfg.S3Uploader.Upload(ctx, s3Bucket, s3Key, fileForUpload)
+	// // if err != nil {
+	// // 	log.Printf("failed to upload output file to s3: %v", err)
+	// // 	job.Status = web.StatusFailed
+	// // 	_ = w.svc.Update(ctx, job)
+	// // 	return err
+	// // }
 
 	return w.svc.Update(ctx, job)
 }
@@ -319,4 +318,154 @@ func (w *webrunner) setupMate(_ context.Context, writer io.Writer, job *web.Job)
 	}
 
 	return scrapemateapp.NewScrapeMateApp(matecfg)
+}
+
+func ParseCSVToStructs(filePath string) ([]PlaceData, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	headers, err := reader.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	var places []PlaceData
+
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		row := make(map[string]string)
+		for i, value := range record {
+			row[headers[i]] = value
+		}
+
+		var place PlaceData
+
+		// Direct string assignments
+		place.InputID = row["input_id"]
+		place.Link = row["link"]
+		place.Title = row["title"]
+		place.Category = row["category"]
+		place.Address = row["address"]
+		place.Website = row["website"]
+		place.Phone = row["phone"]
+		place.PlusCode = row["plus_code"]
+		place.OwnerID = row["owner_id"]
+		place.ReviewSummary = row["review_summary"]
+		place.WorkingHoursOld = row["working_hours_old"]
+		place.Status = row["status"]
+		place.UpdatedAt = row["updated_at"]
+		place.DataID = row["data_id"]
+		place.Emails = row["emails"]
+
+		// Parse floats and ints
+		place.Rating, _ = strconv.ParseFloat(row["rating"], 64)
+		place.Reviews, _ = strconv.Atoi(row["reviews"])
+		place.Latitude, _ = strconv.ParseFloat(row["latitude"], 64)
+		place.Longitude, _ = strconv.ParseFloat(row["longitude"], 64)
+		place.Verified = row["verified"] == "true"
+
+		// JSON fields
+		_ = json.Unmarshal([]byte(row["open_hours"]), &place.OpenHours)
+		_ = json.Unmarshal([]byte(row["popular_times"]), &place.PopularTimes)
+		_ = json.Unmarshal([]byte(row["images"]), &place.Images)
+		_ = json.Unmarshal([]byte(row["reservations"]), &place.Reservations)
+		_ = json.Unmarshal([]byte(row["order_online"]), &place.OrderOnline)
+		_ = json.Unmarshal([]byte(row["menu"]), &place.Menu)
+		_ = json.Unmarshal([]byte(row["owner"]), &place.Owner)
+		_ = json.Unmarshal([]byte(row["complete_address"]), &place.CompleteAddress)
+		_ = json.Unmarshal([]byte(row["about"]), &place.About)
+		_ = json.Unmarshal([]byte(row["user_reviews"]), &place.UserReviews)
+
+		places = append(places, place)
+	}
+
+	return places, nil
+}
+
+type PlaceData struct {
+	InputID         string                    `json:"input_id"`
+	Link            string                    `json:"link"`
+	Title           string                    `json:"title"`
+	Category        string                    `json:"category"`
+	Address         string                    `json:"address"`
+	OpenHours       map[string][]string       `json:"open_hours"`
+	PopularTimes    map[string]map[string]int `json:"popular_times"`
+	Website         string                    `json:"website"`
+	Phone           string                    `json:"phone"`
+	PlusCode        string                    `json:"plus_code"`
+	Rating          float64                   `json:"rating"`
+	Reviews         int                       `json:"reviews"`
+	Latitude        float64                   `json:"latitude"`
+	Longitude       float64                   `json:"longitude"`
+	OwnerID         string                    `json:"owner_id"`
+	Verified        bool                      `json:"verified"`
+	ReviewSummary   string                    `json:"review_summary"`
+	WorkingHoursOld string                    `json:"working_hours_old"`
+	Status          string                    `json:"status"`
+	UpdatedAt       string                    `json:"updated_at"`
+	DataID          string                    `json:"data_id"`
+	Images          []ImageEntry              `json:"images"`
+	Reservations    []LinkEntry               `json:"reservations"`
+	OrderOnline     []LinkEntry               `json:"order_online"`
+	Menu            MenuInfo                  `json:"menu"`
+	Owner           OwnerInfo                 `json:"owner"`
+	CompleteAddress AddressInfo               `json:"complete_address"`
+	About           []AboutEntry              `json:"about"`
+	UserReviews     []UserReview              `json:"user_reviews"`
+	Emails          string                    `json:"emails"`
+}
+
+// Sub-structs
+type ImageEntry struct {
+	Title string `json:"title"`
+	Image string `json:"image"`
+}
+
+type LinkEntry struct {
+	Link string `json:"link"`
+}
+
+type MenuInfo struct {
+	Link   string `json:"link"`
+	Source string `json:"source"`
+}
+
+type OwnerInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type AddressInfo struct {
+	Borough    string `json:"borough"`
+	District   string `json:"district"`
+	City       string `json:"city"`
+	State      string `json:"state"`
+	Country    string `json:"country"`
+	PostalCode string `json:"postal_code"`
+	Raw        string `json:"raw"`
+	Formatted  string `json:"formatted"`
+}
+
+type AboutEntry struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type UserReview struct {
+	Name           string `json:"Name"`
+	ProfilePicture string `json:"ProfilePicture"`
+	Review         string `json:"Review"`
+	Rating         int    `json:"Rating"`
 }

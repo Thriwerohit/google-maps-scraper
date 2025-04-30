@@ -29,7 +29,7 @@ type JobRepository interface {
 }
 
 type Job struct {
-	ID     string
+	ID string
 	Name   string
 	Date   time.Time
 	Status string
@@ -61,17 +61,18 @@ func (j *Job) Validate() error {
 }
 
 type JobData struct {
-	Keywords []string      `json:"keywords"`
-	Lang     string        `json:"lang"`
-	Zoom     int           `json:"zoom"`
-	Lat      string        `json:"lat"`
-	Lon      string        `json:"lon"`
-	FastMode bool          `json:"fast_mode"`
-	Radius   int           `json:"radius"`
-	Depth    int           `json:"depth"`
-	Email    bool          `json:"email"`
-	MaxTime  time.Duration `json:"max_time"`
-	Proxies  []string      `json:"proxies"`
+	Keywords   []string      `json:"keywords"`
+	Lang       string        `json:"lang"`
+	Zoom       int           `json:"zoom"`
+	Lat        string        `json:"lat"`
+	Lon        string        `json:"lon"`
+	FastMode   bool          `json:"fast_mode"`
+	Radius     int           `json:"radius"`
+	Depth      int           `json:"depth"`
+	Email      bool          `json:"email"`
+	MaxTime    time.Duration `json:"max_time"`
+	Proxies    []string      `json:"proxies"`
+	FacilityId string        `json:"facilityId"`
 }
 
 func (d *JobData) Validate() error {
@@ -81,6 +82,10 @@ func (d *JobData) Validate() error {
 
 	if d.Lang == "" {
 		return errors.New("missing lang")
+	}
+
+	if d.FacilityId == "" {
+		return errors.New("missing facility id")
 	}
 
 	if len(d.Lang) != 2 {

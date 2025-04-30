@@ -40,11 +40,11 @@ func (repo *repo) Create(ctx context.Context, job *web.Job) error {
 	}
 
 	const q = `
-		INSERT INTO jobs (id, name, status, data, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO jobs (id, name, status, data, created_at, updated_at,facility_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
-	_, err = repo.db.ExecContext(ctx, q, item.ID, item.Name, item.Status, item.Data, item.CreatedAt, item.UpdatedAt)
+	_, err = repo.db.ExecContext(ctx, q, item.ID, item.Name, item.Status, item.Data, item.CreatedAt, item.UpdatedAt, item.FacilityID)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ type scannable interface {
 func rowToJob(row scannable) (web.Job, error) {
 	var j job
 
-	err := row.Scan(&j.ID, &j.Name, &j.Status, &j.Data, &j.CreatedAt, &j.UpdatedAt)
+	err := row.Scan(&j.ID, &j.Name, &j.FacilityID, &j.Status, &j.Data, &j.CreatedAt, &j.UpdatedAt)
 	if err != nil {
 		return web.Job{}, err
 	}
@@ -135,10 +135,11 @@ func rowToJob(row scannable) (web.Job, error) {
 		Name:   j.Name,
 		Status: j.Status,
 		Date:   time.Unix(j.CreatedAt, 0).UTC(),
+		Data:   web.JobData{FacilityId: j.FacilityID}, // default fallback
 	}
 
-	err = json.Unmarshal([]byte(j.Data), &ans.Data)
-	if err != nil {
+	if err := json.Unmarshal([]byte(j.Data), &ans.Data); err != nil {
+		fmt.Printf("Failed to unmarshal job data: %s\nRaw: %s\n", err, j.Data)
 		return web.Job{}, err
 	}
 
@@ -152,22 +153,35 @@ func jobToRow(item *web.Job) (job, error) {
 	}
 
 	return job{
-		ID:        item.ID,
-		Name:      item.Name,
-		Status:    item.Status,
-		Data:      string(data),
-		CreatedAt: item.Date.Unix(),
-		UpdatedAt: time.Now().UTC().Unix(),
+		ID:         item.ID,
+		Name:       item.Name,
+		Status:     item.Status,
+		Data:       string(data),
+		CreatedAt:  item.Date.Unix(),
+		UpdatedAt:  time.Now().UTC().Unix(),
+		FacilityID: item.Data.FacilityId,
 	}, nil
 }
 
 type job struct {
-	ID        string
-	Name      string
-	Status    string
-	Data      string
-	CreatedAt int64
-	UpdatedAt int64
+	ID         string
+	Name       string
+	Status     string
+	Data       string
+	CreatedAt  int64
+	UpdatedAt  int64
+	FacilityID string
+}
+
+type Job struct {
+	ID     string
+	Name   string
+	Status string
+	Date   time.Time
+	Data   JobData
+}
+type JobData struct {
+	FacilityId string `json:"facility_id"`
 }
 
 func initDatabase(path string) (*sql.DB, error) {
@@ -189,6 +203,7 @@ func createSchema(db *sql.DB) error {
 		CREATE TABLE IF NOT EXISTS jobs (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
+			facility_id TEXT NOT NULL,
 			status TEXT NOT NULL,
 			data TEXT NOT NULL,
 			created_at INT NOT NULL,

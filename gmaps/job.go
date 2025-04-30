@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -37,19 +38,41 @@ func NewGmapJob(
 	zoom int,
 	opts ...GmapJobOptions,
 ) *GmapJob {
-	query = url.QueryEscape(query)
-
 	const (
 		maxRetries = 3
 		prio       = scrapemate.PriorityLow
 	)
+
+	isUrl := regex(query)
+	if isUrl {
+		job := GmapJob{
+			Job: scrapemate.Job{
+				ID:         id,
+				Method:     http.MethodGet,
+				URL:        query,
+				URLParams:  map[string]string{"hl": langCode},
+				MaxRetries: maxRetries,
+				Priority:   prio,
+			},
+			MaxDepth:     maxDepth,
+			LangCode:     langCode,
+			ExtractEmail: extractEmail,
+		}
+
+		for _, opt := range opts {
+			opt(&job)
+		}
+
+		return &job
+	}
+	query = url.QueryEscape(query)
 
 	if id == "" {
 		id = uuid.New().String()
 	}
 
 	mapURL := ""
-	if geoCoordinates != "" && zoom > 0 {
+	if geoCoordinates != "0" && zoom > 0 {
 		mapURL = fmt.Sprintf("https://www.google.com/maps/search/%s/@%s,%dz", query, strings.ReplaceAll(geoCoordinates, " ", ""), zoom)
 	} else {
 		//Warning: geo and zoom MUST be both set or not
@@ -325,4 +348,14 @@ func scroll(ctx context.Context, page playwright.Page, maxDepth int) (int, error
 	}
 
 	return cnt, nil
+}
+
+func regex(text string) bool {
+
+	pattern := `https?://[^\s]+`
+	matched, _ := regexp.MatchString(pattern, text)
+	if matched {
+		return true
+	}
+	return false
 }

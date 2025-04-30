@@ -344,6 +344,8 @@ func (s *Server) scrape(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	newJob.Data.FacilityId = r.Form.Get("facilityId")
+
 	err = newJob.Validate()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnprocessableEntity)
