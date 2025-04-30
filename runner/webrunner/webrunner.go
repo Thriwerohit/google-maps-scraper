@@ -41,11 +41,7 @@ func New(cfg *runner.Config) (runner.Runner, error) {
 		return nil, err
 	}
 
-	// const dbfname = "jobs.db"
-
-	// dbpath := filepath.Join(cfg.DataFolder, dbfname)
-
-	repo, err := sqlite.New("")
+	repo, err := sqlite.New(cfg.Databases.Discovery.URI)
 	if err != nil {
 		return nil, err
 	}
@@ -247,23 +243,20 @@ func (w *webrunner) scrapeJob(ctx context.Context, job *web.Job) error {
 
 	job.Status = web.StatusOK
 
-	// places, err := ParseCSVToStructs(outpath)
-	// if err != nil {
-	// 	log.Fatalf("failed parsing csv: %v", err)
-	// }
+	places, err := ParseCSVToStructs(outpath)
+	if err != nil {
+		log.Fatalf("failed parsing csv: %v", err)
+	}
 
-	// fmt.Println("Parsed places:", places)
-
-	// // s3Key := "exports/" + job.ID + ".csv" // adjust as needed
-	// // s3Bucket := w.cfg.S3Bucket            // assumes OutputBucket string is part of Config
-
-	// // err = w.cfg.S3Uploader.Upload(ctx, s3Bucket, s3Key, fileForUpload)
-	// // if err != nil {
-	// // 	log.Printf("failed to upload output file to s3: %v", err)
-	// // 	job.Status = web.StatusFailed
-	// // 	_ = w.svc.Update(ctx, job)
-	// // 	return err
-	// // }
+	var updateRequest UpdateInput
+	updateRequest.ID = job.Data.FacilityId
+	updateRequest.NewRating = places[0].Rating
+	updateRequest.NewReviewCnt = int64(places[0].Reviews)
+	err = UpdateRatingsAndReviews(ctx, updateRequest, *w.cfg.MongoClient)
+	if err != nil {
+		log.Printf("failed updating ratings and reviews: %v", err)
+		job.Status = web.StatusFailed
+	}
 
 	return w.svc.Update(ctx, job)
 }
@@ -369,8 +362,8 @@ func ParseCSVToStructs(filePath string) ([]PlaceData, error) {
 		place.Emails = row["emails"]
 
 		// Parse floats and ints
-		place.Rating, _ = strconv.ParseFloat(row["rating"], 64)
-		place.Reviews, _ = strconv.Atoi(row["reviews"])
+		place.Rating, _ = strconv.ParseFloat(row["review_rating"], 64)
+		place.Reviews, _ = strconv.Atoi(row["review_count"])
 		place.Latitude, _ = strconv.ParseFloat(row["latitude"], 64)
 		place.Longitude, _ = strconv.ParseFloat(row["longitude"], 64)
 		place.Verified = row["verified"] == "true"

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mattn/go-runewidth"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/term"
 
 	"github.com/gosom/google-maps-scraper/s3uploader"
@@ -78,8 +79,10 @@ type Config struct {
 	Radius                   float64
 	Addr                     string
 	DisablePageReuse         bool
-	KafkaConfig              KafkaConfig  `mapstructure:"kafka_config"`
-	KafkaClient              KafkaClient 
+	KafkaConfig              KafkaConfig `mapstructure:"kafka_config"`
+	KafkaClient              KafkaClient
+	Databases                Databases `mapstructure:"databases"`
+	MongoClient              *mongo.Database
 }
 
 type KafkaConfig struct {
@@ -90,6 +93,19 @@ type KafkaConfig struct {
 	Subjects              []string `mapstructure:"subjects"`
 	SASLUser              string   `mapstructure:"saslUser"`
 	SASLPassword          string   `mapstructure:"saslPassword"`
+}
+type Databases struct {
+	Discovery struct {
+		Type     string `mapstructure:"type"`
+		URI      string `mapstructure:"uri"`
+		SsmParam string `mapstructure:"ssmParam"`
+	} `mapstructure:"discovery"`
+	Auth struct {
+		Type         string `mapstructure:"type"`
+		URI          string `mapstructure:"uri"`
+		DatabaseName string `mapstructure:"database_name"`
+		SsmParam     string `mapstructure:"ssmParam"`
+	} `mapstructure:"auth"`
 }
 
 func ParseConfig() *Config {

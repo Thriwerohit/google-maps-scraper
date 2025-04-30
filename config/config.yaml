@@ -1,10 +1,11 @@
 databases:
-  dbs:
-    - project_code: auth
-      type: "mongo"
-      uri: "mongodb://rashmi_read:hq0PySpkeQ8uz6uF@ac-ez0yja2-shard-00-00.6x4exst.mongodb.net:27017,ac-ez0yja2-shard-00-01.6x4exst.mongodb.net:27017,ac-ez0yja2-shard-00-02.6x4exst.mongodb.net:27017/?replicaSet=atlas-11b9tc-shard-0&ssl=true&authSource=admin"
-      database_name: "staging-auth"
-      ssm:
+  discovery:
+    type: "postgres"
+    uri: "postgresql://postgres:Z5Cq26NnxmUXGL3kAhcf4wPVSv9Q@localhost:5432/discovery"
+  auth:
+    type: "mongo"
+    uri: "mongodb://rashmi_read:hq0PySpkeQ8uz6uF@ac-ez0yja2-shard-00-00.6x4exst.mongodb.net:27017,ac-ez0yja2-shard-00-01.6x4exst.mongodb.net:27017,ac-ez0yja2-shard-00-02.6x4exst.mongodb.net:27017/?replicaSet=atlas-11b9tc-shard-0&ssl=true&authSource=admin"
+    database_name: "staging-auth"    
 
 kafka_config:
   brokers:

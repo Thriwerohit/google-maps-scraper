@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gosom/google-maps-scraper/config"
 	"github.com/gosom/google-maps-scraper/runner"
@@ -15,11 +16,15 @@ import (
 	"github.com/gosom/google-maps-scraper/runner/installplaywright"
 	"github.com/gosom/google-maps-scraper/runner/lambdaaws"
 	"github.com/gosom/google-maps-scraper/runner/webrunner"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 var kafkaConfig runner.KafkaConfig
+var databases runner.Databases
+var mongoClient *mongo.Database
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -59,6 +64,8 @@ func main() {
 	cfg := runner.ParseConfig()
 	cfg.KafkaConfig = kafkaConfig
 	cfg.KafkaClient = kafkaClient
+	cfg.Databases = databases
+	cfg.MongoClient = mongoClient
 
 	runnerInstance, err := runnerFactory(cfg)
 	if err != nil {
@@ -120,5 +127,36 @@ func init() {
 		SASLUser:              Cfg.KafkaConfig.SASLUser,
 		SASLPassword:          Cfg.KafkaConfig.SASLPassword,
 	}
+	databases = Cfg.Databases
 
+	db, err := NewMongoClient(Cfg.Databases.Auth.URI, Cfg.Databases.Auth.DatabaseName)
+	if err != nil {
+		log.Panic("Failed to connect to MongoDB:", err)
+	}
+	mongoClient = db
+	return
+}
+
+func NewMongoClient(connectionURI, databaseName string) (*mongo.Database, error) {
+
+	// Set client options
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	client, errConnect := mongo.Connect(ctx, options.Client().ApplyURI(connectionURI))
+	if errConnect != nil {
+		log.Println(errConnect)
+		return nil, errConnect
+	}
+
+	// Check the connection
+	errPing := client.Ping(ctx, nil)
+	if errPing != nil {
+		log.Println("InitMongoClient-err", errPing)
+		return nil, errPing
+	}
+
+	db := client.Database(databaseName)
+
+	log.Println("Connected to MongoDB!")
+	return db, nil
 }
